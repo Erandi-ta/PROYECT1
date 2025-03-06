@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generador de Contraseñas Seguras</title>
+    <style>
+        :root {
+            --bg-color: #f4f4f4;
+            --text-color: #333;
+            --btn-color: #007bff;
+            --btn-hover: #0056b3;
+            --card-bg: white;
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #222;
+            --text-color: #f4f4f4;
+            --btn-color: #ff9800;
+            --btn-hover: #e68900;
+            --card-bg: #333;
+        }
+
+        * {
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            flex-direction: column;
+            text-align: center;
+        }
+
+        .container {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+            width: 300px;
+        }
+
+        input, button {
+            margin: 10px 0;
+            padding: 10px;
+            font-size: 1rem;
+            width: 100%;
+        }
+
+        button {
+            background: var(--btn-color);
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background 0.3s;
+            border-radius: 5px;
+        }
+
+        button:hover {
+            background: var(--btn-hover);
+        }
+
+        .password-list {
+            margin-top: 20px;
+            max-width: 300px;
+        }
+
+        .password-item {
+            display: flex;
+            justify-content: space-between;
+            background: var(--card-bg);
+            color: var(--text-color);
+            padding: 5px;
+            margin: 5px 0;
+            border-radius: 5px;
+            border: 1px solid var(--text-color);
+        }
+
+        .strength {
+            margin-top: 10px;
+        }
+
+        .weak { color: red; }
+        .medium { color: orange; }
+        .strong { color: green; }
+
+        .toggle-theme {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: none;
+            border: none;
+            font-size: 1.2rem;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body data-theme="light">
+    <button class="toggle-theme">🌙</button>
+    <div class="container">
+        <h1>Generador de Contraseñas</h1>
+        <input type="text" id="password" readonly placeholder="Tu contraseña aquí">
+        <button onclick="copyPassword()">📋 Copiar</button>
+        <div class="strength" id="strength-indicator">Fuerza: -</div>
+        <label>
+            Longitud: <input type="number" id="length" min="8" max="50" value="12">
+        </label>
+        <div>
+            <label><input type="checkbox" id="uppercase" checked> Mayúsculas</label>
+            <label><input type="checkbox" id="lowercase" checked> Minúsculas</label>
+            <label><input type="checkbox" id="numbers" checked> Números</label>
+            <label><input type="checkbox" id="symbols" checked> Símbolos</label>
+        </div>
+        <button onclick="generatePassword()">🔄 Generar</button>
+        <h3>Contraseñas Guardadas</h3>
+        <div class="password-list" id="saved-passwords"></div>
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", loadSavedPasswords);
+        document.querySelector(".toggle-theme").addEventListener("click", toggleTheme);
+
+        function generatePassword() {
+            const length = document.getElementById("length").value;
+            const useUppercase = document.getElementById("uppercase").checked;
+            const useLowercase = document.getElementById("lowercase").checked;
+            const useNumbers = document.getElementById("numbers").checked;
+            const useSymbols = document.getElementById("symbols").checked;
+
+            if (!(useUppercase || useLowercase || useNumbers || useSymbols)) {
+                alert("Debes seleccionar al menos una opción.");
+                return;
+            }
+
+            const uppercaseChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+            const lowercaseChars = "abcdefghijklmnopqrstuvwxyz";
+            const numberChars = "0123456789";
+            const symbolChars = "!@#$%^&*()_+[]{}|;:,.<>?";
+
+            let validChars = "";
+            if (useUppercase) validChars += uppercaseChars;
+            if (useLowercase) validChars += lowercaseChars;
+            if (useNumbers) validChars += numberChars;
+            if (useSymbols) validChars += symbolChars;
+
+            let password = "";
+            const array = new Uint8Array(length);
+            crypto.getRandomValues(array);
+            for (let i = 0; i < length; i++) {
+                password += validChars[array[i] % validChars.length];
+            }
+
+            document.getElementById("password").value = password;
+            evaluateStrength(password);
+            savePassword(password);
+        }
+
+        function copyPassword() {
+            const passwordField = document.getElementById("password");
+            passwordField.select();
+            document.execCommand("copy");
+            alert("Contraseña copiada al portapapeles");
+        }
+
+        function evaluateStrength(password) {
+            const strengthIndicator = document.getElementById("strength-indicator");
+            let strength = "Débil";
+            let classes = "weak";
+
+            if (password.length >= 12 && /[A-Z]/.test(password) && /[a-z]/.test(password) && /\d/.test(password) && /[^A-Za-z0-9]/.test(password)) {
+                strength = "Fuerte";
+                classes = "strong";
+            } else if (password.length >= 10 && (/[A-Z]/.test(password) || /[a-z]/.test(password)) && /\d/.test(password)) {
+                strength = "Media";
+                classes = "medium";
+            }
+
+            strengthIndicator.textContent = "Fuerza: " + strength;
+            strengthIndicator.className = "strength " + classes;
+        }
+
+        function savePassword(password) {
+            let savedPasswords = JSON.parse(localStorage.getItem("passwords")) || [];
+            savedPasswords.unshift(password);
+            if (savedPasswords.length > 5) savedPasswords.pop();
+            localStorage.setItem("passwords", JSON.stringify(savedPasswords));
+            loadSavedPasswords();
+        }
+
+        function loadSavedPasswords() {
+            const savedPasswords = JSON.parse(localStorage.getItem("passwords")) || [];
+            const passwordList = document.getElementById("saved-passwords");
+            passwordList.innerHTML = "";
+
+            savedPasswords.forEach(password => {
+                const div = document.createElement("div");
+                div.className = "password-item";
+                div.innerHTML = `<span>${password}</span> <button onclick="deletePassword('${password}')">❌</button>`;
+                passwordList.appendChild(div);
+            });
+        }
+
+        function deletePassword(password) {
+            let savedPasswords = JSON.parse(localStorage.getItem("passwords")) || [];
+            savedPasswords = savedPasswords.filter(p => p !== password);
+            localStorage.setItem("passwords", JSON.stringify(savedPasswords));
+            loadSavedPasswords();
+        }
+
+        function toggleTheme() {
+            const body = document.body;
+            const currentTheme = body.getAttribute("data-theme");
+            const newTheme = currentTheme === "light" ? "dark" : "light";
+            body.setAttribute("data-theme", newTheme);
+            localStorage.setItem("theme", newTheme);
+        }
+
+        document.body.setAttribute("data-theme", localStorage.getItem("theme") || "light");
+    </script>
+</body>
+</html>
